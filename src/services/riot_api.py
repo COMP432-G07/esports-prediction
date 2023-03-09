@@ -2,8 +2,8 @@ import requests
 from time import sleep
 
 # Region Analyzed. Must stay consistent throughout the client use
-REGION = 'EUROPE'
-SERVER = 'euw1'
+REGION = 'AMERICAS'
+SERVER = 'NA1'
 
 # URL used in the api
 BASE_URL = 'https://%s.api.riotgames.com'
@@ -26,24 +26,28 @@ def check_limits(headers):
             count = (int)(counts[i].split(':')[0])
             remaining = (int)(limit) - count
             if (remaining < 10):
-                print("%i left for %s seconds" % (remaining, time))    
+                print("[check-limit] %i left for %s seconds" % (remaining, time))    
             if remaining <= 1:
-                print('limit reached, sleeping for %s seconds' % time)
+                print('[check-limit] limit reached, sleeping for %s seconds' % time)
                 sleep((int)(time))
+                print('[check-limit] Check complete!')
     if 'X-Method-Rate-Limit' in headers:
         print(headers['X-Method-Rate-Limit'])
         print(headers['X-Method-Rate-Limit-Count'])
+    
     
 def fetch(url, prefix=SERVER):
     response = requests.request("GET", (BASE_URL % prefix) + url, headers=HEADERS)
 
     # If we reach a rate-limit, use the Retry-After header with
     # some padded time before requesting the same resource again
-    if response.status_code == requests.codes.too_many_requests:
+    # check_limits(response.headers)
+    while response.status_code == requests.codes.too_many_requests:
         wait = (int)(response.headers['Retry-After']) + 5
-        # print("Too many requests detected. Sleeping for %i seconds" % wait)
+        print("[fetch] Too many requests detected. Sleeping for %i seconds" % wait)
         sleep(wait)
         # Retry the request
+        print("[fetch] wait completed, retrying request")
         response = requests.request("GET", (BASE_URL % prefix) + url, headers=HEADERS)
 
     return response.json()

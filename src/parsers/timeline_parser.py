@@ -1,6 +1,19 @@
+import torch
+import random
 
 BLUE_PARTICIPANTS = ['1','2','3','4','5']
 RED_PARTICIPANTS = ['6','7','8','9','10']
+
+BLUE_SIDE = 0
+RED_SIDE = 1
+
+POS_DICT = {
+    'TOP': 0,
+    'JUNGLE': 1,
+    'MIDDLE': 2,
+    'BOTTOM': 3,
+    'UTILITY': 4,
+}
 
 def get_total_gold(p):
     return p['totalGold']
@@ -98,3 +111,45 @@ def parse_frame(match_id, timeline, frame_number):
         red_dragons,
         red_rift_heralds
     )
+
+def get_participant_role(match, participant_id):
+    for p in match['info']['participants']:
+        if p['participantId'] == participant_id:
+            return p['individualPosition']
+
+def get_participant(match, participant_id):
+    teamSide = 0 if (str)(participant_id) in BLUE_PARTICIPANTS else 5
+
+    position = next(p['individualPosition'] for p in match['info']['participants'] if p['participantId'] == participant_id)
+    
+    return POS_DICT[position] + teamSide
+
+def preprocess_participant_frame(participantFrame, match):
+    role = get_participant(match, participantFrame['participantId'])
+
+    return (
+        role,
+        participantFrame['xp'],
+        participantFrame['totalGold'],
+        participantFrame['currentGold'],
+        participantFrame['minionsKilled'] + participantFrame['jungleMinionsKilled'],
+        participantFrame['damageStats']['totalDamageDone'],
+        participantFrame['damageStats']['totalDamageTaken'],
+    )
+
+def get_winning_team(teams):
+    team_id = next(m['teamId'] for m in teams if m['win'])
+    return BLUE_SIDE if team_id == 100 else RED_SIDE
+
+def parse_sequence(timeline, match):
+    winning_team = get_winning_team(match['info']['teams'])
+    match_id = match['metadata']['matchId']
+
+    frames = []
+    
+    for frame in timeline:
+        # What I want when preprocessing the frames
+        participants = [preprocess_participant_frame(p, match) for (_, p) in frame['participantFrames'].items()]
+        frames.append(sum([p[1:] for p in sorted(participants)], ()))
+    
+    return match_id, frames, winning_team
